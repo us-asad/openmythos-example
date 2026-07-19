@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>OpenMythos Example — a transparent language model</title>
+<style>
+  :root{
+    --paper:#FAF8F4; --card:#FFFFFF; --edge:#E5E1D8; --edge-2:#D6D1C4;
+    --ink:#1F242E; --soft:#5F6672; --faint:#9AA0AA;
+    --heat:#C84B38;
+    --mind:#22626F; --mind-soft:#C7DDE1; --mind-faint:#EBF2F3;
+    --gold-soft:#F0E4C4;
+    --serif:Georgia,'Iowan Old Style','Times New Roman',serif;
+    --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  button{font-family:inherit;transition:background .15s,color .15s,border-color .15s,box-shadow .15s,opacity .15s}
+  svg{display:block}
+
+  .top{display:flex;align-items:center;gap:12px;padding:14px 26px;border-bottom:1px solid var(--edge);flex:none;background:var(--paper)}
+  .wordmark{font-size:14.5px;font-weight:700;letter-spacing:.01em}
+  .aboutbtn{margin-left:auto;border:none;background:none;color:var(--soft);
+    font-size:13.5px;font-weight:600;border-radius:8px;padding:8px 14px;cursor:pointer}
+  .aboutbtn:hover{background:var(--card);color:var(--ink)}
+  button:focus-visible,.w:focus-visible,input:focus-visible{outline:2.5px solid var(--mind);outline-offset:2px}
+
+  main{flex:1;display:flex;flex-direction:column;min-height:0}
+  body:not(.chatting) main{justify-content:center}
+  .hero{flex:none;padding:0 20px;margin-bottom:30px}
+  body.chatting .hero{display:none}
+  .hero h1{font-family:var(--serif);font-weight:500;font-size:clamp(26px,4.2vw,36px);margin:0;text-align:center;text-wrap:balance}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+  body.chatting .chips{display:none}
+  .chip{border:1px solid var(--edge-2);background:var(--card);border-radius:99px;padding:8px 15px;
+    font-size:13px;color:var(--soft);cursor:pointer}
+  .chip:hover{border-color:var(--edge-2);color:var(--ink);box-shadow:0 2px 8px rgba(60,55,40,.08)}
+
+  .chat{flex:1;overflow-y:auto;padding:28px 16px 8px;display:none;min-height:0}
+  body.chatting .chat{display:block}
+  .inner{max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .msg{max-width:84%;border-radius:14px;padding:11px 16px;line-height:1.5;font-size:14.5px}
+  .msg.user{align-self:flex-end;background:var(--ink);color:var(--paper);border-bottom-right-radius:4px}
+  .msg.bot{align-self:flex-start;background:var(--card);border:1px solid var(--edge);
+    border-bottom-left-radius:4px;font-family:var(--serif);font-size:16.5px;line-height:1.95;position:relative;z-index:0;
+    white-space:pre-wrap}
+  .msg.bot .note-err{display:block;font-family:var(--sans);font-size:12px;color:var(--heat);margin-top:8px}
+  .w{border-radius:4px;cursor:pointer;padding:1px 2px}
+  .w:hover{box-shadow:0 0 0 2px var(--mind-soft)}
+  .w.sel{box-shadow:0 0 0 2px var(--mind)}
+
+  .anchor{position:relative;display:inline-flex;align-items:baseline;justify-content:center;
+    min-width:36px;vertical-align:baseline;border:1.5px dashed var(--mind);
+    border-radius:6px;background:var(--mind-faint);padding:0 8px;line-height:inherit}
+  .anchor .ghostw{font-family:var(--serif);font-size:1em;color:var(--ink);opacity:.15;white-space:nowrap}
+  @media(prefers-reduced-motion:no-preference){
+    .anchor{animation:slotpulse 1.1s ease-in-out infinite}
+    @keyframes slotpulse{50%{border-color:var(--mind-soft)}}
+  }
+  .tip{position:absolute;bottom:calc(100% + 12px);left:0;
+    background:var(--ink);color:var(--paper);border-radius:10px;padding:10px 12px 9px;width:200px;
+    font-family:var(--sans);box-shadow:0 6px 18px rgba(30,30,50,.22);z-index:5;line-height:1.4;white-space:normal}
+  .tip::after{content:'';position:absolute;top:100%;left:var(--ax,50%);margin-left:-6px;
+    border:6px solid transparent;border-top-color:var(--ink)}
+  .tip.below{bottom:auto;top:calc(100% + 12px)}
+  .tip.below::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:var(--ink)}
+  .tip .trow{display:flex;align-items:center;margin-bottom:7px}
+  .tip .tlabel{font-size:10px;font-weight:700;letter-spacing:.1em;color:#AEB7C2}
+  .tip .dots{display:inline-flex;gap:4px;margin-left:auto}
+  .tip .dots i{width:6px;height:6px;border-radius:50%;background:#3A4656}
+  .tip .dots i.on{background:var(--mind-soft)}
+  .tip .cand{display:grid;grid-template-columns:1fr 34px;gap:6px;align-items:center;padding:2px 0}
+  .tip .cw{font-family:var(--serif);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tip .cb{grid-column:1/3;height:3.5px;border-radius:99px;background:#3A4656;overflow:hidden;margin-bottom:2px}
+  .tip .cb i{display:block;height:100%;border-radius:99px;background:#8fa8b5;transition:width .15s}
+  .tip .cp{font-size:11px;color:#AEB7C2;text-align:right;font-variant-numeric:tabular-nums}
+  .tip .cand.lead .cw{color:#F4C3B8;font-weight:600}
+  .tip .cand.lead .cb i{background:var(--heat)}
+  .tip .cand.lead .cp{color:#F4C3B8}
+
+  .dock{flex:none;padding:0 16px}
+  body.chatting .dock{padding-bottom:26px}
+  .ibox{max-width:620px;margin:0 auto;background:var(--card);border:1px solid var(--edge-2);
+    border-radius:20px;box-shadow:0 1px 2px rgba(40,38,30,.04),0 10px 30px rgba(60,55,40,.06);
+    padding:14px 14px 12px 18px;display:flex;flex-direction:column;gap:10px;position:relative}
+  .ibox:focus-within{border-color:var(--mind);box-shadow:0 1px 2px rgba(40,38,30,.04),0 10px 30px rgba(34,98,111,.08)}
+  .ibox input{border:none;background:none;font-size:15.5px;padding:2px 4px 6px 0;color:var(--ink);outline:none;font-family:var(--sans);width:100%}
+  .ibox input::placeholder{color:var(--faint)}
+  .irow2{display:flex;align-items:center;gap:8px}
+  .mtag{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .gear{border:none;background:none;color:var(--soft);cursor:pointer;width:38px;height:38px;
+    border-radius:10px;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center}
+  .gear:hover{background:var(--paper);color:var(--ink)}
+  .send{border:none;background:var(--ink);color:var(--paper);border-radius:12px;
+    width:40px;height:40px;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center}
+  .send:hover:not(:disabled){background:#343b48}
+  .send:disabled{opacity:.35;cursor:default}
+
+  .pop{position:absolute;bottom:calc(100% + 10px);right:0;width:280px;background:var(--card);
+    border:1px solid var(--edge-2);border-radius:14px;box-shadow:0 10px 30px rgba(40,40,50,.14);
+    padding:16px;display:none;z-index:8;text-align:left}
+  .pop.show{display:block}
+  .pop h6{margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.03em}
+  .pop .ps{font-size:11.5px;color:var(--soft);margin:0 0 10px;line-height:1.5}
+  .pop .prow{margin-bottom:14px}
+  .pop input[type=range]{width:100%;accent-color:var(--mind)}
+  .rlabels{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);font-family:var(--mono)}
+  .seg{display:inline-flex;background:var(--paper);border:1px solid var(--edge);border-radius:9px;padding:3px}
+  .seg button{border:none;background:none;font-weight:600;font-size:12.5px;color:var(--soft);
+    border-radius:7px;padding:5px 13px;cursor:pointer}
+  .seg button.on{background:var(--mind);color:#fff}
+
+  .scrim{position:fixed;inset:0;background:rgba(31,36,46,.38);opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+  .scrim.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;inset:0;margin:auto;width:min(580px,92vw);height:fit-content;max-height:84vh;
+    background:var(--paper);border:1px solid var(--edge);border-radius:18px;
+    box-shadow:0 24px 60px rgba(30,30,45,.25);z-index:10;display:flex;flex-direction:column;
+    opacity:0;transform:scale(.965);pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+  .drawer.show{opacity:1;transform:none;pointer-events:auto}
+  @media(prefers-reduced-motion:reduce){.drawer{transition:none}.scrim{transition:none}}
+  .dhead{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--edge);flex:none}
+  .dhead b{font-size:14px;letter-spacing:.01em}
+  .dhead .x{margin-left:auto;border:none;background:none;font-size:21px;color:var(--faint);cursor:pointer}
+  .dbody{overflow-y:auto;padding:20px;display:grid;gap:14px;align-content:start}
+  .dcard{background:var(--card);border:1px solid var(--edge);border-radius:12px;padding:16px 18px}
+  .dcard h5{margin:0 0 8px;font-size:13px;letter-spacing:.01em}
+  .dcard p{margin:0;font-size:12.5px;line-height:1.65;color:var(--soft)}
+  .dcard p+p{margin-top:8px}
+  .dcard .m{font-family:var(--mono);font-size:11px;color:var(--mind)}
+  .bflow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .bstage{background:var(--paper);border:1px solid var(--edge);border-radius:7px;padding:6px 11px;text-align:center}
+  .bstage b{display:block;font-size:11px;letter-spacing:.03em}
+  .bstage span{font-family:var(--mono);font-size:9px;color:var(--faint)}
+  .bstage.mid{border-color:var(--mind-soft)}
+  .bstage.mid b{color:var(--mind)}
+  .ba{color:var(--faint);font-size:11px}
+  .factrow{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12px;margin-top:4px}
+  .factrow dt{font-family:var(--mono);font-size:10.5px;color:var(--faint);align-self:baseline}
+  .factrow dd{margin:0;color:var(--ink)}
+
+  .backlink{border:none;background:none;color:var(--mind);font-weight:600;font-size:12px;cursor:pointer;padding:0;text-align:left}
+  .story h3{font-family:var(--serif);font-weight:500;font-size:19px;margin:0}
+  .story h3 b{color:var(--heat)}
+  .confline{font-size:11.5px;color:var(--soft);margin:6px 0 2px}
+  .confline b{color:var(--ink)}
+  .row h4{margin:0 0 8px;font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--faint);text-transform:uppercase}
+  .chain{display:grid;gap:5px}
+  .link{display:grid;grid-template-columns:56px 1fr 44px;gap:8px;align-items:center;background:var(--card);
+    border:1px solid var(--edge);border-radius:8px;padding:7px 11px}
+  .link .n{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .link .gw{font-family:var(--serif);font-size:14.5px}
+  .link .gp{font-size:11px;color:var(--soft);text-align:right;font-variant-numeric:tabular-nums}
+  .link.flip .gw{color:var(--mind);font-weight:600}
+  .link.final .gw{color:var(--heat);font-weight:600}
+  .note{font-size:12px;color:var(--ink);background:var(--card);border:1px solid var(--edge);
+    border-radius:8px;padding:9px 12px;line-height:1.55}
+  .note b{color:var(--mind)}
+  .note.gold{background:var(--gold-soft);border-color:transparent}
+  .note.gold b{color:#7a5f1e}
+  .specs{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+  .spec{aspect-ratio:1;border-radius:7px;background:var(--card);border:1px solid var(--edge);
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .spec.on{border-color:transparent;color:#fff;font-weight:700}
+  .alist{display:grid;gap:5px}
+  .acand{display:grid;grid-template-columns:86px 1fr 40px;gap:8px;align-items:center}
+  .acand .aw{font-family:var(--serif);font-size:14px}
+  .acand .abar{height:8px;background:var(--card);border:1px solid var(--edge);border-radius:99px;overflow:hidden}
+  .acand .abar i{display:block;height:100%;background:#C9CFD8;min-width:3px}
+  .acand .ap{font-size:11px;color:var(--soft);text-align:right;font-variant-numeric:tabular-nums}
+  .acand.win .aw{color:var(--heat);font-weight:600}
+  .acand.win .abar i{background:var(--heat)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wordmark">OpenMythos Example</div>
+  <button class="aboutbtn" id="aboutbtn">About</button>
+</header>
+
+<main>
+  <div class="hero" id="hero">
+    <h1>Watch OpenMythos think.</h1>
+  </div>
+
+  <div class="chat" id="chat"><div class="inner" id="inner"></div></div>
+
+  <div class="dock">
+    <div class="ibox">
+      <input id="prompt" type="text" placeholder="Ask the model anything…" aria-label="message"/>
+      <div class="irow2">
+        <span class="mtag">OpenMythos · 282M · recurrent-depth</span>
+        <button class="gear" id="gear" aria-label="generation settings">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="send" id="send" aria-label="send">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+      <div class="pop" id="pop">
+        <div class="prow">
+          <h6>Generation speed</h6>
+          <p class="ps">Slow it down to observe each reasoning pass as it happens.</p>
+          <input type="range" id="speed" min="0" max="100" value="55" aria-label="generation speed"/>
+          <div class="rlabels"><span>observe</span><span>instant</span></div>
+        </div>
+        <div class="prow" style="margin-bottom:2px">
+          <h6>Reasoning passes per word</h6>
+          <p class="ps">Reduce the internal loop and compare output quality. Applies to the next reply.</p>
+          <div class="seg" id="depthseg">
+            <button data-d="1">1</button><button data-d="2">2</button>
+            <button data-d="3">3</button><button data-d="4" class="on">4</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip">The history of Rome</button>
+      <button class="chip">What is the meaning of life?</button>
+      <button class="chip">Why is water important?</button>
+    </div>
+  </div>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="about">
+  <div class="dhead"><b id="dtitle">About this model</b>
+    <button class="x" id="dclose" aria-label="close">×</button></div>
+  <div class="dbody" id="dbody"></div>
+</aside>
+
+<script>
+(() => {
+  const $=id=>document.getElementById(id);
+  const chat=$("chat"),inner=$("inner"),promptEl=$("prompt"),send=$("send");
+  const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let DEPTH=4, running=false;
+
+  /* base model has no chat training — frame the exchange as a Q/A document
+     and carry recent turns so replies read as answers, not continuations */
+  const conversation=[];
+  const buildPrompt=q=>{
+    const hist=conversation.slice(-3).map(p=>`Question: ${p.q}\nAnswer: ${p.a}`).join("\n");
+    return (hist?hist+"\n":"")+`Question: ${q}\nAnswer:`;
+  };
+
+  const speedEl=$("speed");
+  const spinMs=()=>1600*Math.pow(45/1600,speedEl.value/100);
+  const instant=()=>reduceMotion||spinMs()<70;
+
+  /* ---------- about / record modal ---------- */
+  const drawer=$("drawer"),scrim=$("scrim"),dbody=$("dbody"),dtitle=$("dtitle");
+  const openDrawer=()=>{drawer.classList.add("show");scrim.classList.add("show");};
+  const closeDrawer=()=>{drawer.classList.remove("show");scrim.classList.remove("show");
+    document.querySelectorAll(".w.sel").forEach(e=>e.classList.remove("sel"));};
+  $("dclose").addEventListener("click",closeDrawer);
+  scrim.addEventListener("click",closeDrawer);
+
+  function explainerHTML(){
+    return `
+    <div class="dcard"><h5>The architecture</h5>
+      <p>Standard language models emit each token in a single forward pass. This model implements
+      <span class="m">recurrent depth</span>: a shared block re-processes the hidden state several times
+      before any token is produced — reasoning in latent space, prior to language.</p>
+      <div class="bflow">
+        <div class="bstage"><b>READ</b><span>prelude · 2 layers</span></div><span class="ba">→</span>
+        <div class="bstage mid"><b>REASON ⟳ ×${DEPTH}</b><span>recurrent block</span></div><span class="ba">→</span>
+        <div class="bstage"><b>EMIT</b><span>coda · 2 layers</span></div>
+      </div>
+      <p style="margin-top:12px">During generation, the faint word in the dashed slot is what the model would say
+      <i>if it stopped reasoning at that pass</i> — measured by running the loop at every budget
+      from 1 to ${DEPTH} in parallel, solidifying as reasoning deepens.</p></div>
+    <div class="dcard"><h5>Reading the interface</h5>
+      <p>Select any word after generation to inspect its record: how the answer evolved across passes,
+      which context words drew attention, and which experts were routed. Generation speed and loop depth
+      are adjustable in settings (⚙, next to the input).</p></div>
+    <div class="dcard"><h5>The experiment worth running</h5>
+      <p>In settings, reduce reasoning passes from 4 to 1 and ask again. The identical weights produce
+      measurably less coherent output — a direct ablation of the reasoning loop, observable in the text itself.</p></div>
+    <div class="dcard"><h5>Provenance</h5>
+      <dl class="factrow">
+        <dt>MODEL</dt><dd>OpenMythos architecture · recurrent depth</dd>
+        <dt>PARAMS</dt><dd>282M active · mixture-of-experts (8, top-4)</dd>
+        <dt>TRAINING</dt><dd>50M tokens of FineWeb-Edu, single GPU</dd>
+        <dt>CAVEAT</dt><dd>Output is grammatical but not factual — a deliberate trade-off of scale.
+          The purpose is observability, not capability.</dd>
+      </dl></div>`;
+  }
+  const showExplainer=()=>{dtitle.textContent="About this model";dbody.innerHTML=explainerHTML();openDrawer();};
+  $("aboutbtn").addEventListener("click",showExplainer);
+
+  function showStory(records,idx,spans){
+    const r=records[idx];
+    document.querySelectorAll(".w.sel").forEach(e=>e.classList.remove("sel"));
+    spans[idx].classList.add("sel");
+    dtitle.textContent="Token record";
+    const flips=[];
+    const chain=r.passes.map((g,i)=>{
+      const flip=i>0&&g.guess!==r.passes[i-1].guess;if(flip)flips.push(i);
+      return `<div class="link ${flip?"flip":""} ${i===r.passes.length-1?"final":""}">
+        <span class="n">PASS ${i+1}</span><span class="gw">${esc(g.guess)}</span>
+        <span class="gp">${Math.round(100*g.conf)}%</span></div>`;}).join("");
+    const pc=Math.round(100*(r.chosen_p||0));
+    dbody.innerHTML=`
+      <button class="backlink" id="backex">← model overview</button>
+      <div class="story"><h3>“<b>${esc(r.word.trim()||r.word)}</b>”</h3>
+      <div class="confline">Sampled with <b>${pc}%</b> probability ·
+        ${pc>45?"high":pc>25?"moderate":"low"} certainty at emission</div></div>
+      <div class="row"><h4>Answer by reasoning budget (1 → ${r.passes.length} passes)</h4>
+        <div class="chain">${chain}</div>
+        <div class="note" style="margin-top:6px">${
+          r.passes.length===1?"Loop reduced to a single pass — first instinct, unrevised.":
+          flips.length?`The answer <b>changed ${flips.length===1?"once":flips.length+" times"}</b> as reasoning deepened.`:
+          "The one-pass answer survived every deeper budget."}</div></div>
+      <div class="row"><h4>Attention targets</h4>
+        <div class="note gold">${r.looks&&r.looks.length?
+          "Strongest attention to "+r.looks.map(l=>`<b>“${esc(l.text)}”</b> (${Math.round(l.w*100)}%)`).join(", "):
+          "No dominant context target recorded."}</div></div>
+      <div class="row"><h4>Expert routing (top-4 of 8)</h4>
+        <div class="specs">${Array.from({length:8},(_,i)=>{
+          const hit=(r.experts||[]).find(e=>e.e===i);
+          return `<div class="spec ${hit?"on":""}" ${hit?`style="background:rgba(34,98,111,${.35+.65*Math.min(1,hit.w*2.2)})"`:""}>E${i}</div>`;
+        }).join("")}</div></div>
+      <div class="row"><h4>Final candidate distribution</h4>
+        <div class="alist">${(r.top5||[]).map(cd=>`
+          <div class="acand ${cd.win?"win":""}"><span class="aw">${esc(cd.w)}</span>
+          <span class="abar"><i style="width:${Math.round(100*cd.p)}%"></i></span>
+          <span class="ap">${Math.round(100*cd.p)}%</span></div>`).join("")}</div></div>`;
+    $("backex").addEventListener("click",showExplainer);
+    openDrawer();
+  }
+  const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+  /* ---------- settings ---------- */
+  const pop=$("pop"),gear=$("gear");
+  gear.addEventListener("click",e=>{e.stopPropagation();pop.classList.toggle("show");});
+  document.addEventListener("click",e=>{if(!pop.contains(e.target)&&!gear.contains(e.target))pop.classList.remove("show");});
+  $("depthseg").addEventListener("click",e=>{
+    const b=e.target.closest("button");if(!b)return;
+    DEPTH=+b.dataset.d;
+    document.querySelectorAll("#depthseg button").forEach(x=>x.classList.toggle("on",x===b));
+  });
+
+  /* ---------- chat ---------- */
+  const scrollDown=()=>{chat.scrollTop=chat.scrollHeight;};
+  function addUserMsg(text){
+    const m=document.createElement("div");m.className="msg user";m.textContent=text;
+    inner.appendChild(m);scrollDown();
+  }
+
+  function botReplyLive(rawQ,promptText){
+    const m=document.createElement("div");m.className="msg bot";
+    inner.appendChild(m);scrollDown();
+    const spans=[],records=[];
+
+    const anchor=document.createElement("span");anchor.className="anchor";
+    anchor.innerHTML='<span class="ghostw">·</span>';
+    m.appendChild(anchor);
+    const ghost=anchor.querySelector(".ghostw");
+    const tip=document.createElement("span");tip.className="tip";tip.hidden=true;
+    anchor.appendChild(tip);
+
+    function positionTip(){
+      const ar=anchor.getBoundingClientRect(),cr=chat.getBoundingClientRect();
+      tip.classList.toggle("below",ar.top-cr.top<160);
+      const tw=tip.offsetWidth||200;
+      const cx=ar.left+ar.width/2;
+      let left=cx-tw/2;
+      left=Math.max(cr.left+8,Math.min(left,cr.right-8-tw));
+      tip.style.left=(left-ar.left)+"px";
+      tip.style.setProperty("--ax",Math.max(14,Math.min(tw-14,cx-left))+"px");
+    }
+    addEventListener("resize",()=>{if(!tip.hidden)positionTip();});
+
+    const url=`api/generate?prompt=${encodeURIComponent(promptText)}&depth=${DEPTH}&max_new=60`;
+    const es=new EventSource(url);
+    const q=[];let ended=false,failed=false;
+    es.onmessage=e=>{
+      const ev=JSON.parse(e.data);
+      if(ev.type==="token")q.push(ev);
+      else if(ev.type==="done"){ended=true;es.close();}
+      else if(ev.type==="error"){ended=true;failed=ev.message||"generation error";es.close();}
+    };
+    es.onerror=()=>{if(!ended){ended=true;failed="connection lost — the Space may still be loading the model (first visit takes a minute). Try again shortly.";es.close();}};
+
+    function commit(ev){
+      const raw=spans.length===0?ev.text.replace(/^\s+/,""):ev.text;
+      const parts=raw.match(/^(\s*)([\s\S]*)$/);
+      if(parts[1])m.insertBefore(document.createTextNode(parts[1]),anchor);
+      const span=document.createElement("span");
+      span.className="w";span.tabIndex=0;
+      span.textContent=parts[2]||raw;
+      /* effort tint: answer instability across passes + final uncertainty, low alpha */
+      const g=ev.passes||[];let flips=0;
+      for(let k=1;k<g.length;k++)if(g[k].guess!==g[k-1].guess)flips++;
+      const fr=g.length>1?flips/(g.length-1):0;
+      const effort=Math.min(1,.65*fr+.35*(1-(ev.chosen_p||0)));
+      span.style.background=`rgba(200,75,56,${(0.05+0.26*effort).toFixed(3)})`;
+      const idx=records.length;
+      records.push({word:ev.text,passes:ev.passes,top5:ev.top5,experts:ev.experts,looks:ev.looks,chosen_p:ev.chosen_p});
+      span.addEventListener("click",()=>showStory(records,idx,spans));
+      span.addEventListener("keydown",e=>{if(e.key==="Enter")showStory(records,idx,spans);});
+      spans.push(span);
+      m.insertBefore(span,anchor);
+      scrollDown();
+    }
+
+    function animateToken(ev,done){
+      ghost.textContent="·";ghost.style.opacity=.15;
+      let timers=[];
+      const clearAll=()=>{timers.forEach(clearTimeout);timers=[];};
+      const passes=ev.passes;
+      tip.hidden=false;
+      tip.innerHTML=`<span class="trow"><span class="tlabel">REASONING</span>
+        <span class="dots">${passes.map(()=>"<i></i>").join("")}</span></span>
+        <div class="tcands"></div>`;
+      const dots=tip.querySelectorAll(".dots i"),tc=tip.querySelector(".tcands");
+      positionTip();
+      function showPass(i){
+        const g=passes[i];
+        dots.forEach((el,k)=>el.classList.toggle("on",k<=i));
+        const others=(ev.top5||[]).filter(c=>c.w!==g.guess).slice(0,2);
+        tc.innerHTML=[{w:g.guess,p:g.conf,lead:true},...others].map(c=>`
+          <div class="cand ${c.lead?"lead":""}">
+            <span class="cw">${esc(c.w)}</span><span class="cp">${Math.round(100*c.p)}%</span>
+            <span class="cb"><i style="width:${Math.round(100*c.p)}%"></i></span>
+          </div>`).join("");
+        ghost.textContent=g.guess;
+        ghost.style.opacity=(0.25+0.65*(i+1)/passes.length).toFixed(2);
+        positionTip();scrollDown();
+      }
+      function runPass(i){
+        if(i>=passes.length){clearAll();tip.hidden=true;done();return;}
+        timers.push(setTimeout(()=>showPass(i),spinMs()*.35));
+        timers.push(setTimeout(()=>runPass(i+1),spinMs()));
+      }
+      runPass(0);
+    }
+
+    function pump(){
+      if(q.length){
+        const ev=q.shift();
+        if(instant()){commit(ev);setTimeout(pump,10);}
+        else animateToken(ev,()=>{commit(ev);setTimeout(pump,30);});
+        return;
+      }
+      if(ended){
+        anchor.remove();
+        if(failed){
+          const d=document.createElement("span");d.className="note-err";
+          d.textContent="⚠ "+failed;m.appendChild(d);
+        }else{
+          const replyText=records.map(r=>r.word).join("").trim();
+          if(replyText)conversation.push({q:rawQ,a:replyText});
+        }
+        running=false;send.disabled=false;scrollDown();
+        return;
+      }
+      setTimeout(pump,120);   /* waiting for the model */
+    }
+    pump();
+  }
+
+  function ask(text){
+    if(running)return;
+    text=(text||promptEl.value).trim();
+    if(!text)return;
+    promptEl.value="";
+    document.body.classList.add("chatting");
+    running=true;send.disabled=true;
+    addUserMsg(text);
+    botReplyLive(text,buildPrompt(text));
+  }
+  send.addEventListener("click",()=>ask());
+  promptEl.addEventListener("keydown",e=>{if(e.key==="Enter")ask();});
+  $("chips").addEventListener("click",e=>{
+    const c=e.target.closest(".chip");if(c)ask(c.textContent);
+  });
+})();
+</script>
+</body>
+</html>
