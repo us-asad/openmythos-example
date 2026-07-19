@@ -48,7 +48,7 @@ Requires Python 3.11+ and ~3GB RAM. The model (~930MB) downloads automatically
 from Hugging Face on first start.
 
 ```bash
-git clone https://github.com/<you>/openmythos-example.git
+git clone https://github.com/us-asad/openmythos-example.git
 cd openmythos-example
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
