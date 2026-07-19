@@ -1,5 +1,7 @@
 # OpenMythos Example — watch a language model think
 
+**Live demo: [mythos.usmonov.tech](https://mythos.usmonov.tech)**
+
 A chat interface for a **282M-parameter recurrent-depth language model**, where the
 model's reasoning is visible in real time: every word it speaks is preceded by an
 internal loop you can watch, slow down, inspect, and even switch off.
